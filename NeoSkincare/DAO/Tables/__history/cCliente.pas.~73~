@@ -1,0 +1,62 @@
+unit cCliente;
+
+interface
+
+Uses uTEntity, cAtribEntity;
+
+type
+  [TableName('CADCLI')]
+  TCliente = class(TGenericEntity)
+  private
+    FCodigo:string;
+    FNome:string;
+    FDataNascimento:string;
+    FEndereco:string;
+
+    procedure setFCodigo(value:string);
+    procedure setFNome(value:string);
+    procedure setFDataNascimento(value:string);
+    procedure setFEndereco(value:string);
+
+  public
+    [KeyField('CLI_CODCLI')]
+    [FieldType('INTEGER')]
+    property Codigo:string read FCodigo write setFCodigo;
+
+    [FieldName('CLI_NOMCLI')]
+    [FieldType('TEXT')]
+    property Nome:string read FNome write setFNome;
+
+    [FieldName('CLI_DTANSC')]
+    [FieldType('DATE')]
+    property DataNascimento :string read FDataNascimento write setFDataNascimento;
+
+    [FieldName('CLI_ENDERE')]
+    [FieldType('TEXT')]
+    property Endereco :string read FEndereco write setFEndereco;
+
+end;
+
+implementation
+
+procedure TCliente.setFCodigo(value:string);
+begin
+  FCodigo:= value;
+end;
+
+procedure TCliente.setFNome(value:string);
+begin
+  FNome:= value;
+end;
+
+procedure TCliente.setFDataNascimento(value:string);
+begin
+  FDataNascimento:= value;
+end;
+
+procedure TCliente.setFEndereco(value:string);
+begin
+  FEndereco:= value;
+end;
+
+end.

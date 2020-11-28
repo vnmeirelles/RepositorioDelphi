@@ -1,0 +1,16 @@
+program Projeto_Persistencia;
+
+uses
+  Vcl.Forms,
+  untPrincipal in 'untPrincipal.pas' {frmPrincipal},
+  untTEntity in 'Framework\untTEntity.pas',
+  tblAluno in 'Framework\tblAluno.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfrmPrincipal, frmPrincipal);
+  Application.Run;
+end.

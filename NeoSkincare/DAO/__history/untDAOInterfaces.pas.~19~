@@ -1,0 +1,30 @@
+unit untDAOInterfaces;
+
+interface
+
+uses Data.DB, FireDAC.Stan.Param;
+
+type
+  IQuery = interface
+  ['{B1F6D3BF-1932-4136-B620-3651FF0B4D2E}']
+    procedure First;
+    procedure Next;
+    procedure AddSQL(ASQL: String);
+    function Eof: Boolean;
+    procedure Close;
+    procedure Clear;
+    procedure Open;
+    procedure ExecSQL;
+    function FieldByName(AField: String): TField;
+    function ParambyName(AField: String): TFDParam;
+  end;
+
+  IConexao = interface
+  ['{05D2D367-A916-4A85-89E0-00B553CE3361}']
+  function CriarQuery(): IQuery;
+  end;
+
+implementation
+
+end.
+

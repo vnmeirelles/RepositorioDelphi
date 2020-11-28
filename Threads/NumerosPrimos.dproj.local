@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2020/01/25 00:44:30.000.198,=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit2.pas</Transaction>
+    <Transaction>2020/03/25 00:03:34.000.343,=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit2.pas</Transaction>
+    <Transaction>2020/03/25 00:04:16.000.781,C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\untPrincipal.pas=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit2.pas</Transaction>
+    <Transaction>2020/03/25 00:04:16.000.781,C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\untPrincipal.dfm=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit2.dfm</Transaction>
+    <Transaction>2020/03/25 00:04:37.000.516,C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\NumerosPrimos.dproj=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Project2.dproj</Transaction>
+    <Transaction>2020/03/25 00:05:40.000.077,=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2020/03/25 00:06:17.000.032,C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\untCalculoPrimosThread.pas=C:\Users\vnmei\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+  </Transactions>
+</BorlandProject>

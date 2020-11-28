@@ -1,0 +1,183 @@
+unit uConexao;
+
+interface
+
+uses
+	Vcl.Dialogs, SqlExpr, inifiles, SysUtils, Forms, FireDAC.Comp.Client,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
+  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait,
+  FireDAC.Phys.MySQLDef, FireDAC.Phys.MySQL, Data.DB,
+  FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  FireDAC.Comp.DataSet, untDAOInterfaces;
+
+type
+  TQuery = class(TInterfacedObject, IQuery)
+  private
+    FDQuery  : TFDQuery;
+  public
+    constructor Create(AConnection: TFDConnection);
+    destructor  Destroy; override;
+
+    function Eof: Boolean;
+    procedure First;
+    procedure Next;
+    procedure AddSQL(ASQL: String);
+    procedure Close;
+    procedure Clear;
+    procedure Open;
+    procedure ExecSQL;
+    function ParambyName(AField: String): TField;
+    function FieldByName(AField: String): TField;
+  end;
+
+  TConexaoBanco = class(TInterfacedObject, IConexao)
+  private
+    FConexaoBanco: TFDConnection;
+    DriverLink: TFDPhysMySQLDriverLink;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function CriarQuery(): IQuery;
+  end;
+
+  function GetConexao: IConexao;
+
+implementation
+
+{TConexaoBanco}
+
+function GetConexao: IConexao;
+begin
+  Result := TConexaoBanco.Create;
+end;
+
+constructor TConexaoBanco.Create;
+var
+  ArquivoINI,
+  Servidor,
+  Banco,
+  Porta,
+  DriverPath: string;
+  LocalServer : Integer;
+  Configuracoes : TIniFile;
+begin
+  ArquivoINI := ExtractFilePath(Application.ExeName) + 'config.ini';
+
+  if not FileExists(ArquivoINI) then
+    begin
+      ShowMessage('Arquivo de Config não Encontrado - Entre em contato como suporte técnico!');
+      Exit;
+  end;
+
+  Configuracoes := TIniFile.Create(ArquivoINI);
+
+  Try
+    Servidor   := Configuracoes.ReadString('DADOS', 'SERVIDOR',   Servidor);
+    Banco      := Configuracoes.ReadString('DADOS', 'BANCO',      Banco);
+    Porta      := Configuracoes.ReadString('DADOS', 'PORTA',      Porta);
+    DriverPath := Configuracoes.ReadString('DADOS', 'DRIVERPATH', DriverPath);
+  Finally
+    Configuracoes.Free;
+  end;
+
+  Try
+    DriverLink := TFDPhysMySQLDriverLink.Create(Nil);
+    DriverLink.Release;
+    DriverLink.VendorLib    := DriverPath;
+    FConexaoBanco := TFDConnection.Create(Nil);
+    FConexaoBanco.Close;
+    FConexaoBanco.Params.Clear;
+    FConexaoBanco.Connected  := False;
+    FConexaoBanco.ConnectionName := 'NeoSkincare';
+    FConexaoBanco.DriverName     := 'MySql';
+    FConexaoBanco.LoginPrompt    := False;
+    FConexaoBanco.Params.Values['CharacterSet'] := 'utf8';
+    FConexaoBanco.Params.Values['User_Name']    := 'vnmeirelles';
+    FConexaoBanco.Params.Values['Password']     := '@VnMeirelles64@';
+    FConexaoBanco.Params.Values['Server']       := Servidor;
+    FConexaoBanco.Params.Values['DataBase']     := Banco;
+    FConexaoBanco.Params.Values['Port']         := Porta;
+    FConexaoBanco.Connected  := True;
+   // ShowMessage('Conexão Com o Banco de Dados Estabelecida');
+  Except
+    ShowMessage('Erro ao Conectar o Banco de dados. Verifique as preferencias do sistema!');
+   end;
+
+end;
+
+destructor TConexaoBanco.Destroy;
+begin
+  FreeAndNil(FConexaoBanco);
+  FreeAndNil(DriverLink);
+  inherited;
+end;
+
+function TConexaoBanco.CriarQuery: IQuery;
+begin
+   Result := TQuery.Create(FConexaoBanco);
+end;
+
+constructor TQuery.Create(AConnection: TFDConnection);
+begin
+  FDQuery := TFDQuery.Create(nil);
+  FDQuery.Connection := AConnection;
+end;
+
+destructor TQuery.Destroy;
+begin
+  FreeAndNil(FDQuery);
+  inherited;
+end;
+
+procedure TQuery.AddSQL(ASQL: String);
+begin
+  FDQuery.SQL.Add(ASQL);
+end;
+
+procedure TQuery.Clear;
+begin
+  FDQuery.SQL.Clear;
+end;
+
+procedure TQuery.Close;
+begin
+  FDQuery.Close;
+end;
+
+function TQuery.Eof: Boolean;
+begin
+  Result := FDQuery.Eof;
+end;
+
+procedure TQuery.ExecSQL;
+begin
+  FDQuery.ExecSQL;
+end;
+
+function TQuery.FieldByName(AField: String): TField;
+begin
+  Result := FDQuery.FieldByName(AField);
+end;
+
+procedure TQuery.First;
+begin
+  FDQuery.First;
+end;
+
+procedure TQuery.Next;
+begin
+  FDQuery.Next;
+end;
+
+procedure TQuery.Open;
+begin
+  FDQuery.Open;
+end;
+
+function TQuery.ParambyName(AField: String): TFDParam;
+begin
+ Result := FDQuery.ParamByName(AField);
+end;
+
+end.

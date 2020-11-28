@@ -1,0 +1,69 @@
+unit tblAluno;
+
+interface
+
+Uses untTEntity;
+
+type
+TAluno = class(TGenericEntity)
+    private
+    FMatricula:string;
+    FNomeAluno:string;
+    FEndereco:string;
+    FTelefone:string;
+    FCPF:string;
+
+    procedure setFMatricula(value:string);
+    procedure setFNomeAluno(value:string);
+    procedure setFEndereco(value:string);
+    procedure setFTelefone(value:string);
+    procedure setFCPF(value:string);
+
+  Public
+
+    property Matricula: string read FMatricula write setFMatricula;
+    property Nome:string read FNomeAluno write setFNomeAluno;
+    property Endereco:string read FEndereco write setFEndereco;
+    property Telefone:string read FTelefone write setFTelefone;
+    property CPF:string read FCPF write setFCPF;
+
+    function ToString:string; override;
+
+end;
+
+implementation
+
+procedure TAluno.setFMatricula(value:string);
+begin
+  FMatricula:= value;
+end;
+
+procedure TAluno.setFNomeAluno(value:string);
+begin
+  FNomeAluno:= value;
+end;
+
+procedure TAluno.setFEndereco(value:string);
+begin
+  FEndereco:= value;
+end;
+
+procedure TAluno.setFTelefone(value:string);
+begin
+  FTelefone:= value;
+end;
+
+procedure TAluno.setFCPF(value:string);
+begin
+  FCPF:= value;
+end;
+
+function TAluno.toString;
+begin
+  result := '''' Matricula: ''''+ Matricula + '''' Nome: ''''+ Nome +
+  '''' Endereco: '''' + Endereco +
+  '''' Fone: '''' + Telefone + '''' CPF: '''' + CPF;
+end;
+
+
+end.

@@ -1,0 +1,62 @@
+unit untPrincipal;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls;
+
+type
+  TfrmPrincipal = class(TForm)
+    Label1: TLabel;
+    edtNumero: TEdit;
+    btnCalcular: TButton;
+    mmoDetalhes: TMemo;
+    procedure btnCalcularClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure TratarEventoTerminate;
+  private
+    FThreadsEmExecucao: Integer;
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  frmPrincipal: TfrmPrincipal;
+
+implementation
+
+Uses
+  untCalculoPrimosThread;
+
+{$R *.dfm}
+
+procedure TfrmPrincipal.btnCalcularClick(Sender: TObject);
+var
+  NovaThread: CalculoPrimosThread;
+begin
+  NovaThread := CalculoPrimosThread.Create(True);
+  NovaThread.FreeOnTerminate := True;
+  try
+    NovaThread.Numero := StrToInt(edtNumero.Text);
+    NovaThread.Resume;
+ except on EConvertError do
+   begin
+      NovaThread.Free;
+      ShowMessage('Não é um número válido!');
+   end;
+ end;
+end;
+
+procedure TfrmPrincipal.FormCreate(Sender: TObject);
+begin
+  FThreadsEmExecucao  := 0;
+end;
+
+procedure TfrmPrincipal.TratarEventoTerminate;
+begin
+  FThreadsEmExecucao := FThreadsEmExecucao - 1;
+end;
+
+end.

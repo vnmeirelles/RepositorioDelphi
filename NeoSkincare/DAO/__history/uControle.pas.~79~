@@ -1,0 +1,98 @@
+unit uControle;
+
+interface
+
+uses
+   Windows, Messages, SysUtils, Classes,  Controls, Forms, Dialogs,
+   Variants, StrUtils, uConexao, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+   FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+   FireDAC.DApt.Intf, FireDAC.Stan.Async, FireDAC.DApt, Data.DB,
+   FireDAC.Comp.DataSet, FireDAC.Comp.Client;
+
+type
+  TControle = class
+  private
+    FConexao : TConexaoBanco;
+    FDQuery  : TFDQuery;
+  public
+    constructor Create;
+    destructor  Destroy; override;
+    property SQLGeral : TFDQuery read FDQuery write FDQuery;
+    function getDataSet(strQry:string): TDataSet;
+    Class function ExecSql(strQry:string): boolean;
+    function OpenSql(strQry:string): boolean;
+  end;
+
+implementation
+
+{ TControle }
+
+constructor TControle.Create;
+begin
+   inherited;
+   FConexao  := TConexaoBanco.Create;
+  // FDQuery := TFDQuery.Create(Nil);
+  // FDQuery.Connection := FConexao.ConexaoBanco;
+end;
+
+destructor TControle.Destroy;
+begin
+  inherited;
+end;
+
+function TControle.getDataSet(strQry:string): TDataSet;
+begin
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  FDQuery.Open;
+  result := FDQuery;
+end;
+
+Class function TControle.ExecSql(strQry:string): boolean;
+Var
+  msgErro:string;
+  Controle: TControle;
+  FDQuery  : TFDQuery;
+begin
+  //Controle := TControle.Create();
+  result := false;
+  FDQuery := TFDQuery.Create(Nil);
+  FDQuery.Connection := FConexaoBanco ;
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  try
+    FDQuery.ExecSQL;
+    result := true;
+  except
+   on e: Exception do begin
+     raise Exception.Create(e.Message)
+   end;
+  end;
+  Controle.Destroy;
+end;
+
+function TControle.OpenSql(strQry:string): boolean;
+Var
+  msgErro:string;
+  Controle: TControle;
+begin
+  Controle := TControle.Create();
+  result := false;
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  try
+    FDQuery.Open;
+    result := true;
+  except
+   on e: Exception do begin
+     raise Exception.Create(e.Message)
+   end;
+  end;
+  Controle.Destroy;
+end;
+
+
+end.

@@ -1,0 +1,75 @@
+unit untAtribEntity;
+
+interface
+
+type
+  TableName = class(TCustomAttribute)
+  private
+    FName: String;
+    FTipo: String;
+  public
+    constructor Create(aName,aTipo: String);
+    property Name: String read FName write FName;
+    property Tipo:  String read FTipo write FTipo;
+  end;
+
+type
+  KeyField = class(TCustomAttribute)
+  private
+    FName: String;
+    FTipo: String;
+  public
+    constructor Create(aName,aTipo: String);
+    property Name: String read FName write FName;
+    property Tipo:  String read FTipo write FTipo;
+  end;
+
+type
+  FieldName = class(TCustomAttribute)
+  private
+    FName: String;
+    FTipo: String;
+  public
+    constructor Create(aName,aTipo: String);
+    property Name: String read FName write FName;
+    property Tipo:  String read FTipo write FTipo;
+  end;
+
+type
+  FieldType = class(TCustomAttribute)
+  private
+    FName: String;
+    FTipo: String;
+  public
+    constructor Create(aName, aTipo: String);
+    property Name: String read FName write FName;
+    property Tipo:  String read FTipo write FTipo;
+  end;
+
+implementation
+
+constructor TableName.Create(aName,aTipo: String);
+begin
+  FName := aName;
+  FTipo := aTipo;
+end;
+
+constructor KeyField.Create(aName,aTipo: String);
+begin
+  FName := aName;
+  FTipo := aTipo;
+end;
+
+constructor FieldName.Create(aName,aTipo: String);
+begin
+  FName := aName;
+  FTipo := aTipo;
+end;
+
+constructor FieldType.Create(aName, aTipo: String);
+begin
+  FName := aName;
+  FTipo := aTipo;
+end;
+
+end.

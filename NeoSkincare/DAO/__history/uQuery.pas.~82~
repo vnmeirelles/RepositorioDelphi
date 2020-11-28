@@ -1,0 +1,151 @@
+unit uQuery;
+
+interface
+
+uses
+   Windows, Messages, SysUtils, Classes,  Controls, Forms, Dialogs,
+   Variants, StrUtils, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+   FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+   FireDAC.DApt.Intf, FireDAC.Stan.Async, FireDAC.DApt, Data.DB,
+   FireDAC.Comp.DataSet, FireDAC.Comp.Client, uConexao, untDAOInterfaces;
+
+type
+  TQuery = class(TInterfacedObject, IQuery)
+  private
+    FDQuery  : TFDQuery;
+  public
+    constructor Create(AConnection: TFDConnection);
+    destructor  Destroy; override;
+
+    function Eof: Boolean;
+    procedure First;
+    procedure Next;
+    procedure AddSQL(ASQL: String);
+    procedure Close;
+    procedure Clear;
+    procedure Open;
+    procedure ExecSQL;
+    function FieldByName(AField: String): TField;
+
+    function ExecuteSql(strQry:string): boolean;
+    function OpenSql(strQry:string): boolean;
+    function OpenSqlRetorno(strQry, strCampoRetorno:string): String;
+  end;
+
+implementation
+
+constructor TQuery.Create(AConnection: TFDConnection);
+Var
+  FConexaoBanco: TConexaoBanco;
+begin
+  FConexaoBanco := TConexaoBanco.Create();
+  FDQuery := TFDQuery.Create(FConexaoBanco);
+  FDQuery.Connection := AConnection;
+  FConexaoBanco.Destroy;
+end;
+
+destructor TQuery.Destroy;
+begin
+  FreeAndNil(FDQuery);
+  inherited;
+end;
+
+procedure TQuery.AddSQL(ASQL: String);
+begin
+  FDQuery.SQL.Add(ASQL);
+end;
+
+procedure TQuery.Clear;
+begin
+  FDQuery.SQL.Clear;
+end;
+
+procedure TQuery.Close;
+begin
+  FDQuery.Close;
+end;
+
+function TQuery.Eof: Boolean;
+begin
+  Result := FDQuery.Eof;
+end;
+
+procedure TQuery.ExecSQL;
+begin
+  FDQuery.ExecSQL;
+end;
+
+function TQuery.FieldByName(AField: String): TField;
+begin
+  Result := FDQuery.FieldByName(AField);
+end;
+
+procedure TQuery.First;
+begin
+  FDQuery.First;
+end;
+
+procedure TQuery.Next;
+begin
+  FDQuery.Next;
+end;
+
+procedure TQuery.Open;
+begin
+  FDQuery.Open;
+end;
+
+function TQuery.ExecuteSql(strQry:string): boolean;
+Var
+  msgErro:string;
+begin
+  result := false;
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  try
+    FDQuery.ExecSQL;
+    result := true;
+  except
+   on e: Exception do begin
+     raise Exception.Create(e.Message)
+   end;
+  end;
+end;
+
+function TQuery.OpenSql(strQry:string): boolean;
+Var
+  msgErro:string;
+begin
+  result := false;
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  try
+    FDQuery.Open;
+    result := true;
+  except
+   on e: Exception do begin
+     raise Exception.Create(e.Message)
+   end;
+  end;
+end;
+
+function TQuery.OpenSqlRetorno(strQry,strCampoRetorno:string): String;
+Var
+  msgErro:string;
+begin
+  FDQuery.Close;
+  FDQuery.Params.Clear;
+  FDQuery.SQL.Text := strQry;
+  try
+    FDQuery.Open;
+    result := FDQuery.FieldByName(strCampoRetorno).AsString;
+  except
+   on e: Exception do begin
+     raise Exception.Create(e.Message)
+   end;
+  end;
+end;
+
+end.

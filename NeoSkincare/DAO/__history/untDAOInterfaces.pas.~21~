@@ -1,0 +1,30 @@
+unit untDAOInterfaces;
+
+interface
+
+uses Data.DB, FireDAC.Stan.Param;
+
+type
+  IQuery = interface
+
+    procedure First;
+    procedure Next;
+    procedure AddSQL(ASQL: String);
+    function Eof: Boolean;
+    procedure Close;
+    procedure Clear;
+    procedure Open;
+    procedure ExecSQL;
+    function FieldByName(AField: String): TField;
+    function ParambyName(AField: String): TFDParam;
+  end;
+
+  IConexao = interface
+
+  function CriarQuery(): IQuery;
+  end;
+
+implementation
+
+end.
+

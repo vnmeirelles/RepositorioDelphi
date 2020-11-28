@@ -1,0 +1,330 @@
+unit uGenericDAO;
+
+interface
+
+Uses Db, Rtti, CAtribEntity, TypInfo, SysUtils, uConexao,
+     System.StrUtils, System.Classes, untDAOInterfaces, System.Variants;
+
+type
+  TGenericDAO = class
+    private
+      class function getTableName<T: class>(Obj: T): String;
+      class function getProximoCodigo(strKeyField, strTable:String): String;
+    public
+      class function Insert<T: class>(Obj: T):Boolean;
+      class function Update<T: class>(Obj: T):boolean;
+      class function Delete<T: class>(Obj: T):boolean;
+      class function fExecutaSql(strQuery: String):Boolean;
+      class function fFormataDataSQL(strDate: String):String;
+      class function fFormataParametros(strKeyField:String; blnInclui: Boolean):String;
+  end;
+
+implementation
+
+
+class function TGenericDAO.fExecutaSql(strQuery: String): Boolean;
+var
+  Query: IQuery;
+begin
+    Query := GetConexao.CriarQuery;
+    Query.AddSQL(strQuery);
+    Query.ExecSQL;
+    result := true;
+end;
+
+class function TGenericDAO.fFormataParametros(strKeyField:String; blnInclui: Boolean): String;
+begin
+  if blnInclui then
+    result := ':'+strKeyField
+  else
+    result := Copy(strKeyField,2,Length(strKeyField));
+end;
+
+class function TGenericDAO.fFormataDataSQL(strDate: String): String;
+var
+  strAuxDate: String;
+begin
+   strDate := Trim(AnsiReplaceStr(strDate, '/',''));
+
+   If(strDate = '') Then
+   Begin
+     result := '(NULL)';
+     exit;
+   End;
+
+  strAuxDate := strAuxDate + Copy(strDate, 5,StrToInt(IfThen((Length(strDate) > 6),'4','2')));
+  strAuxDate := strAuxDate + '-' +  Copy(strDate, 3,2);
+  strAuxDate := strAuxDate + '-' +  Copy(strDate, 1,2);
+
+  result := strAuxDate;
+end;
+
+class function TGenericDAO.getProximoCodigo(strKeyField, strTable:String): String;
+Var
+  Query: IQuery;
+  strProCod: String;
+begin
+    Query :=  GetConexao.CriarQuery;
+    Query.AddSQL('SELECT MAX(' +strKeyField+' + 1) AS PROCOD FROM ' +strTable+ ';');
+    Query.Open;
+    strProCod := Query.FieldByName('PROCOD').AsString;
+    result := IfThen(strProCod = '', '1', strProCod);
+end;
+
+class function TGenericDAO.getTableName<T>(Obj: T):String;
+var
+  Contexto: TRttiContext;
+  typObj: TRttiType;
+  Atributo:TCustomAttribute;
+  strTable: String;
+begin
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Atributo in TypObj.GetAttributes do
+    begin
+      if Atributo is TableName then
+        Exit(TableName(Atributo).Name);
+    end;
+end;
+
+class function TGenericDAO.Insert<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strInsert: String;
+  stlFields, stlValues : TStringList;
+  Atributo: TCustomAttribute;
+  Query: IQuery;
+  intCtrl:Integer;
+ Begin
+
+  result := False;
+
+  stlFields := TStringList.Create();
+  stlValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do begin
+    for Atributo in Prop.GetAttributes do
+    begin
+     if (Atributo is KeyField) Or (Atributo is FieldName)  Then
+      begin
+       stlFields.Add(FieldName(Atributo).Name);
+       stlValues.Add(fFormataParametros(FieldName(Atributo).Name, True));
+      end;
+    end;
+  end;
+
+  strInsert := ' INSERT INTO ' + GetTableName(Obj) + '( ';;
+
+  for intCtrl := 0 to stlFields.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strInsert := strInsert + stlFields[intCtrl]
+    else
+      strInsert := strInsert + ' , ' +  stlFields[intCtrl];
+  end;
+
+  strInsert := strInsert + ' ) VALUES ( ';
+
+  for intCtrl := 0 to stlValues.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strInsert := strInsert + stlValues[intCtrl]
+    else
+      strInsert := strInsert + ' , ' +  stlValues[intCtrl];
+  end;
+
+  strInsert := strInsert + ' );';
+
+  try
+    Query := GetConexao.CriarQuery;
+    Query.Clear;
+    Query.AddSQL(strInsert);
+    intCtrl:= 0;
+
+    For Prop in TypObj.GetProperties do
+    Begin
+      For Atributo in Prop.GetAttributes do
+      Begin
+        If (Atributo is FieldType) Then
+        Begin
+          If ((FieldType(Atributo).Name) = 'INTEGER') Then
+              Query.ParambyName(fFormataParametros(stlValues[intCtrl],False)).AsInteger := StrToInt(Prop.GetValue(TObject(Obj)).AsString);
+          If ((FieldType(Atributo).Name) = 'TEXT') Then
+              Query.ParambyName(fFormataParametros(stlValues[intCtrl],False)).AsString := Prop.GetValue(TObject(Obj)).AsString;
+          If ((FieldType(Atributo).Name) = 'DATE') Then
+          Begin
+           If Prop.GetValue(TObject(Obj)).AsString = ('(NULL)') Then
+             Query.ParambyName(fFormataParametros(stlValues[intCtrl],False)).AsDate := 0
+           Else
+             Query.ParambyName(fFormataParametros(stlValues[intCtrl],False)).AsDate := strToDate(Prop.GetValue(TObject(Obj)).AsString);
+          End;
+        End;
+      End;
+      inc(intCtrl);
+    End;
+
+    Query.ExecSQL;
+    result := true;
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel incluir o registro!')
+    end;
+  end;
+
+end;
+
+class function TGenericDAO.Update<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strUpdate: String;
+  stlFields, stlValues, stlWhereFields, stlWhereValues: TStringList;
+  Atributo: TCustomAttribute;
+  Query:IQuery;
+  intCtrl: Integer;
+ Begin
+  result := False;
+
+  stlFields := TStringList.Create();
+  stlValues := TStringList.Create();
+  stlWhereFields := TStringList.Create();
+  stlWhereValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do
+  begin
+     for Atributo in Prop.GetAttributes do begin
+        if Atributo is KeyField then
+        begin
+          stlWhereFields.Add(FieldName(Atributo).Name);
+          case Prop.GetValue(TObject(Obj)).Kind of
+
+            tkWChar, tkLString, tkWString, tkString, tkChar, tkUString:
+            stlWhereValues.Add(QuotedStr(Prop.GetValue(TObject(Obj)).AsString));
+
+          else
+            raise Exception.Create('Tipo Não Suportado');
+          end;
+        end;
+        if Atributo is FieldName then
+        begin
+          stlFields.Add(FieldName(Atributo).Name);
+          case Prop.GetValue(TObject(Obj)).Kind of
+
+            tkWChar, tkLString, tkWString, tkString, tkChar, tkUString:
+            stlValues.Add(QuotedStr(Prop.GetValue(TObject(Obj)).AsString));
+
+            tkInteger, tkInt64:
+            stlValues.Add(IntToStr(Prop.GetValue(TObject(Obj)).AsInteger));
+
+            tkFloat:
+            stlValues.Add(FloatToStr(Prop.GetValue(TObject(Obj)).AsExtended));
+
+            else
+              raise Exception.Create('Tipo Não Suportado');
+          end;
+       end;
+     end;
+  end;
+
+  strUpdate := ' UPDATE ' + GetTableName(Obj) + ' SET ';
+
+  for intCtrl := 0 to stlFields.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strUpdate := strUpdate + stlFields[intCtrl] + ' = '
+    else
+      strUpdate := strUpdate + ' , ' +  stlFields[intCtrl] + ' = ';
+
+    strUpdate := strUpdate + stlValues[intCtrl];
+  end;
+
+  strUpdate :=  strUpdate + ' WHERE TRUE ';
+
+  for intCtrl := 0 to stlWhereFields.Count -1  do
+  begin
+    strUpdate := strUpdate + ' AND ' + stlWhereFields[intCtrl];
+    strUpdate := strUpdate + '  =  ' + stlWhereValues[intCtrl];
+  end;
+
+  strUpdate := strUpdate + ';';
+
+  try
+    result := fExecutaSql(strUpdate);
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel alterar o registro!')
+    end;
+  end;
+
+end;
+
+
+class function TGenericDAO.Delete<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strDelete: String;
+  stlWhereFields, stlWhereValues: TStringList;
+  Atributo: TCustomAttribute;
+  Query: IQuery;
+  intCtrl: Integer;
+ Begin
+  result := False;
+
+  stlWhereFields := TStringList.Create();
+  stlWhereValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do
+  begin
+     for Atributo in Prop.GetAttributes do begin
+        if Atributo is KeyField then
+        begin
+          stlWhereFields.Add(FieldName(Atributo).Name);
+          case Prop.GetValue(TObject(Obj)).Kind of
+
+            tkWChar, tkLString, tkWString, tkString, tkChar, tkUString:
+            stlWhereValues.Add(QuotedStr(Prop.GetValue(TObject(Obj)).AsString));
+
+          else
+            raise Exception.Create('Tipo Não Suportado');
+          end;
+        end;
+     end;
+  end;
+
+  strDelete := ' DELETE FROM ' + GetTableName(Obj) + ' WHERE TRUE  ';
+
+  for intCtrl := 0 to stlWhereFields.Count -1  do
+  begin
+    strDelete := strDelete + ' AND ' + stlWhereFields[intCtrl];
+    strDelete := strDelete + '  =  ' + stlWhereValues[intCtrl];
+  end;
+
+  strDelete := strDelete + ';';
+
+  try
+    result := fExecutaSql(strDelete);
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel excluir o registro!')
+    end;
+  end;
+
+end;
+
+
+end.

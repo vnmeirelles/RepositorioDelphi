@@ -1,0 +1,465 @@
+unit untGenericDAO;
+
+interface
+
+Uses Db, Rtti, untAtributoEntidade, TypInfo, SysUtils, untConexao,
+     System.StrUtils, System.Classes, untDAOInterfaces, System.Variants,
+     FireDAC.Stan.Param{***};
+
+type
+  TGenericDAO = class
+    private
+      class function getTableName<T: class>(Obj: T): String;
+      class function getProximoCodigo(strKeyField, strTable:String): String;
+    public
+      class function Insert<T: class>(Obj: T):Boolean;
+      class function Update<T: class>(Obj: T):boolean;
+      class function Delete<T: class>(Obj: T):boolean;
+      class function fExecutaSql(strQuery: String):Boolean;
+      class function fFormataDataSQL(strDate: String):String;
+      class function fFormataParametrosInsert(strKeyField:String; blnInclui: Boolean):String;
+      class function fFormataParametrosUpdate(strKeyField:String; blnInclui,blnWhere: Boolean):String;
+  end;
+
+implementation
+
+
+class function TGenericDAO.fExecutaSql(strQuery: String): Boolean;
+var
+  Query: IQuery;
+begin
+    Query := GetConexao.CriarQuery;
+    Query.AddSQL(strQuery);
+    Query.ExecSQL;
+    result := true;
+end;
+
+class function TGenericDAO.fFormataParametrosInsert(strKeyField:String; blnInclui: Boolean): String;
+begin
+  if blnInclui then
+    result := ':'+strKeyField
+  else
+    result := Copy(strKeyField,2,Length(strKeyField));
+end;
+
+class function TGenericDAO.fFormataParametrosUpdate(strKeyField: String;
+  blnInclui, blnWhere: Boolean): String;
+begin
+  If blnWhere Then
+    strKeyField := 'WR_'+strKeyField;
+  If blnInclui then
+     result := ':'+strKeyField
+  else
+     result := Copy(strKeyField,2,Length(strKeyField));
+end;
+
+class function TGenericDAO.fFormataDataSQL(strDate: String): String;
+var
+  strAuxDate: String;
+begin
+   strDate := Trim(AnsiReplaceStr(strDate, '/',''));
+
+   If(strDate = '') Then
+   Begin
+     result := '(NULL)';
+     exit;
+   End;
+
+  strAuxDate := strAuxDate + Copy(strDate, 5,StrToInt(IfThen((Length(strDate) > 6),'4','2')));
+  strAuxDate := strAuxDate + '-' +  Copy(strDate, 3,2);
+  strAuxDate := strAuxDate + '-' +  Copy(strDate, 1,2);
+
+  result := strAuxDate;
+end;
+
+class function TGenericDAO.getProximoCodigo(strKeyField, strTable:String): String;
+Var
+  Query: IQuery;
+  strProCod: String;
+begin
+    Query :=  GetConexao.CriarQuery;
+    Query.AddSQL('SELECT MAX(' +strKeyField+' + 1) AS PROCOD FROM ' +strTable+ ';');
+    Query.Open;
+    strProCod := Query.FieldByName('PROCOD').AsString;
+    result := IfThen(strProCod = '', '1', strProCod);
+end;
+
+class function TGenericDAO.getTableName<T>(Obj: T):String;
+var
+  Contexto: TRttiContext;
+  typObj: TRttiType;
+  Atributo:TCustomAttribute;
+  strTable: String;
+begin
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Atributo in TypObj.GetAttributes do
+    begin
+      if Atributo is TableName then
+        Exit(TableName(Atributo).Nome);
+    end;
+end;
+
+class function TGenericDAO.Insert<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strInsert: String;
+  stlFields, stlValues : TStringList;
+  Atributo: TCustomAttribute;
+  Query: IQuery;
+  intCtrl:Integer;
+Begin
+
+  result := False;
+
+  stlFields := TStringList.Create();
+  stlValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do begin
+    for Atributo in Prop.GetAttributes do
+    begin
+     if (Atributo is KeyField) Or (Atributo is FieldName)  Then
+      begin
+       stlFields.Add(FieldName(Atributo).Nome);
+       stlValues.Add(fFormataParametrosInsert(FieldName(Atributo).Nome, True));
+      end;
+    end;
+  end;
+
+  strInsert := ' INSERT INTO ' + GetTableName(Obj) + '( ';;
+
+  for intCtrl := 0 to stlFields.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strInsert := strInsert + stlFields[intCtrl]
+    else
+      strInsert := strInsert + ' , ' +  stlFields[intCtrl];
+  end;
+
+  strInsert := strInsert + ' ) VALUES ( ';
+
+  for intCtrl := 0 to stlValues.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strInsert := strInsert + stlValues[intCtrl]
+    else
+      strInsert := strInsert + ' , ' +  stlValues[intCtrl];
+  end;
+
+  strInsert := strInsert + ' );';
+
+  try
+    Query := GetConexao.CriarQuery;
+    Query.Clear;
+    Query.AddSQL(strInsert);
+
+    intCtrl:= 0;
+
+    For Prop in TypObj.GetProperties do
+    Begin
+      For Atributo in Prop.GetAttributes do
+      Begin
+        If (Atributo is KeyField) Then
+        Begin
+          If((KeyField(Atributo).Tipo) = 'INTEGER') Then
+            Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).AsInteger := StrToInt(getProximoCodigo(KeyField(Atributo).Nome,GetTableName(Obj)));
+        end;
+
+        If(Atributo is FieldName) Then
+        Begin
+
+          If((FieldName(Atributo).Tipo) = 'INTEGER') Then
+            Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).AsInteger := StrToInt(Prop.GetValue(TObject(Obj)).AsString);
+
+          If((FieldName(Atributo).Tipo) = 'TEXT') Then
+            Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).AsString := Prop.GetValue(TObject(Obj)).AsString;
+
+          If ((FieldName(Atributo).Tipo) = 'DATE') Then
+          Begin
+            If Prop.GetValue(TObject(Obj)).AsString = ('(NULL)') Then
+            Begin
+              Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).DataType := ftDate;
+              Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).Clear;
+            End
+            Else
+              Query.ParambyName(fFormataParametrosInsert(stlValues[intCtrl],False)).AsDate := strToDate(Prop.GetValue(TObject(Obj)).AsString);
+          End;
+        End;
+      End;
+      inc(intCtrl);
+    End;
+
+    Query.ExecSQL;
+    result := true;
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel incluir o registro!')
+    end;
+  end;
+
+end;
+
+class function TGenericDAO.Update<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strUpdate: String;
+  stlFields, stlValues, stlWhereFields, stlWhereValues: TStringList;
+  Atributo: TCustomAttribute;
+  Query:IQuery;
+  intCtrl: Integer;
+ Begin
+  result := False;
+
+  stlFields := TStringList.Create();
+  stlValues := TStringList.Create();
+  stlWhereFields := TStringList.Create();
+  stlWhereValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do
+  begin
+     for Atributo in Prop.GetAttributes do begin
+        if Atributo is KeyField then
+        begin
+          stlWhereFields.Add(FieldName(Atributo).Nome);
+          stlWhereValues.Add(fFormataParametrosUpdate(FieldName(Atributo).Nome, True, True));
+        end;
+        if Atributo is FieldName then
+        begin
+          stlFields.Add(FieldName(Atributo).Nome);
+          stlValues.Add(fFormataParametrosUpdate(FieldName(Atributo).Nome, True, False));
+       end;
+     end;
+  end;
+
+  strUpdate := ' UPDATE ' + GetTableName(Obj) + ' SET ';
+
+  for intCtrl := 0 to stlFields.Count -1  do
+  begin
+    If intCtrl = 0 Then
+      strUpdate := strUpdate + stlFields[intCtrl] + ' = '
+    else
+      strUpdate := strUpdate + ' , ' +  stlFields[intCtrl] + ' = ';
+
+    strUpdate := strUpdate + stlValues[intCtrl];
+  end;
+
+  strUpdate :=  strUpdate + ' WHERE TRUE ';
+
+  for intCtrl := 0 to stlWhereFields.Count -1  do
+  begin
+    strUpdate := strUpdate + ' AND ' + stlWhereFields[intCtrl];
+    strUpdate := strUpdate + '  =  ' + stlWhereValues[intCtrl];
+  end;
+
+  strUpdate := strUpdate + ';';
+
+  try
+
+    Query := GetConexao.CriarQuery;
+    Query.Clear;
+    Query.AddSQL(strUpdate);
+
+    intCtrl:= 0;
+
+    {SET}
+    For Prop in TypObj.GetProperties do
+    Begin
+      For Atributo in Prop.GetAttributes do
+      Begin
+        If(Atributo is FieldName) Then
+        Begin
+            If((FieldName(Atributo).Tipo) = 'INTEGER') Then
+            Begin
+              Query.ParambyName(fFormataParametrosUpdate(stlValues[intCtrl],False,False)).AsInteger := StrToInt(Prop.GetValue(TObject(Obj)).AsString);
+              inc(intCtrl);
+            End;
+
+            If((FieldName(Atributo).Tipo) = 'TEXT') Then
+            Begin
+              Query.ParambyName(fFormataParametrosUpdate(stlValues[intCtrl],False,False)).AsString := Prop.GetValue(TObject(Obj)).AsString;
+              inc(intCtrl);
+            End;
+
+            If ((FieldName(Atributo).Tipo) = 'DATE') Then
+            Begin
+              If Prop.GetValue(TObject(Obj)).AsString = ('(NULL)') Then
+              Begin
+                Query.ParambyName(fFormataParametrosUpdate(stlValues[intCtrl],False,False)).DataType := ftDate;
+                Query.ParambyName(fFormataParametrosUpdate(stlValues[intCtrl],False,False)).Clear;
+              End
+              Else
+                Query.ParambyName(fFormataParametrosUpdate(stlValues[intCtrl],False,False)).AsDate := strToDate(Prop.GetValue(TObject(Obj)).AsString);
+              inc(intCtrl);
+            End;
+        End;
+      End;
+    End;
+
+    intCtrl := 0;
+    {WHERE}
+    For Prop in TypObj.GetProperties do
+    Begin
+      For Atributo in Prop.GetAttributes do
+      Begin
+        If((Atributo is KeyField)) Then
+        Begin
+          If((FieldName(Atributo).Tipo) = 'INTEGER') Then
+          Begin
+            Query.ParambyName(fFormataParametrosUpdate(stlWhereValues[intCtrl],False,False)).AsInteger := StrToInt(Prop.GetValue(TObject(Obj)).AsString);
+            inc(intCtrl);
+          End;
+
+          If((FieldName(Atributo).Tipo) = 'TEXT') Then
+          Begin
+            Query.ParambyName(fFormataParametrosUpdate(stlWhereValues[intCtrl],False,False)).AsString := Prop.GetValue(TObject(Obj)).AsString;
+            inc(intCtrl);
+          End;
+
+          If ((FieldName(Atributo).Tipo) = 'DATE') Then
+          Begin
+            If Prop.GetValue(TObject(Obj)).AsString = ('(NULL)') Then
+            Begin
+              Query.ParambyName(fFormataParametrosUpdate(stlWhereValues[intCtrl],False,False)).DataType := ftDate;
+              Query.ParambyName(fFormataParametrosUpdate(stlWhereValues[intCtrl],False,False)).Clear;
+            End
+            Else
+              Query.ParambyName(fFormataParametrosUpdate(stlWhereValues[intCtrl],False,False)).AsDate := strToDate(Prop.GetValue(TObject(Obj)).AsString);
+            inc(intCtrl);
+          End;
+        End;
+      End;
+    End;
+
+    Query.ExecSQL;
+    result := true;
+
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel alterar o registro!')
+    end;
+  end;
+
+end;
+
+
+class function TGenericDAO.Delete<T>(Obj: T):boolean;
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+  strDelete: String;
+  stlWhereFields, stlWhereValues: TStringList;
+  Atributo: TCustomAttribute;
+  Query: IQuery;
+  intCtrl: Integer;
+ Begin
+  result := False;
+
+  stlWhereFields := TStringList.Create();
+  stlWhereValues := TStringList.Create();
+
+  Contexto := TRttiContext.Create;
+  TypObj := Contexto.GetType(TObject(Obj).ClassInfo);
+
+  for Prop in TypObj.GetProperties do
+  begin
+     for Atributo in Prop.GetAttributes do begin
+        if Atributo is KeyField then
+        begin
+          stlWhereFields.Add(FieldName(Atributo).Nome);
+          case Prop.GetValue(TObject(Obj)).Kind of
+
+            tkWChar, tkLString, tkWString, tkString, tkChar, tkUString:
+            stlWhereValues.Add(QuotedStr(Prop.GetValue(TObject(Obj)).AsString));
+
+          else
+            raise Exception.Create('Tipo Não Suportado');
+          end;
+        end;
+     end;
+  end;
+
+  strDelete := ' DELETE FROM ' + GetTableName(Obj) + ' WHERE TRUE  ';
+
+  for intCtrl := 0 to stlWhereFields.Count -1  do
+  begin
+    strDelete := strDelete + ' AND ' + stlWhereFields[intCtrl];
+    strDelete := strDelete + '  =  ' + fFormataParametrosInsert(stlWhereValues[intCtrl],True);
+  end;
+
+  strDelete := strDelete + ' ;';
+
+  try
+    Query := GetConexao.CriarQuery;
+    Query.Clear;
+    Query.AddSQL(strDelete);
+
+    intCtrl:= 0;
+
+    For Prop in TypObj.GetProperties do
+    Begin
+      For Atributo in Prop.GetAttributes do
+      Begin
+        If ((Atributo is KeyField) Or (Atributo is FieldName)) Then
+        Begin
+          If((FieldName(Atributo).Tipo) = 'INTEGER') Then
+            Query.ParambyName(fFormataParametrosInsert(stlWhereValues[intCtrl],False)).AsInteger := StrToInt(Prop.GetValue(TObject(Obj)).AsString);
+
+          If((FieldName(Atributo).Tipo) = 'TEXT') Then
+            Query.ParambyName(fFormataParametrosInsert(stlWhereValues[intCtrl],False)).AsString := Prop.GetValue(TObject(Obj)).AsString;
+
+          If ((FieldName(Atributo).Tipo) = 'DATE') Then
+          Begin
+            If Prop.GetValue(TObject(Obj)).AsString = ('(NULL)') Then
+            Begin
+              Query.ParambyName(fFormataParametrosInsert(stlWhereValues[intCtrl],False)).DataType := ftDate;
+              Query.ParambyName(fFormataParametrosInsert(stlWhereValues[intCtrl],False)).Clear;
+            End
+            Else
+              Query.ParambyName(fFormataParametrosInsert(stlWhereValues[intCtrl],False)).AsDate := strToDate(Prop.GetValue(TObject(Obj)).AsString);
+          End;
+        end;
+      End;
+      inc(intCtrl);
+    End;
+
+    Query.ExecSQL;
+    result := true;
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel incluir o registro!')
+    end;
+  end;
+
+
+
+
+
+
+
+  {
+  try
+    Query.ExecSQL;
+    result := true;
+  except
+    on e: Exception do begin
+     raise Exception.Create('Não foi possivel excluir o registro!')
+    end;
+  end;
+
+  }
+end;
+
+
+end.
